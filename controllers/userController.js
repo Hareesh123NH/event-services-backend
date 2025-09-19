@@ -20,7 +20,7 @@ const createAddress = async (req, res) => {
     }
 
     const newAddress = new Address({
-      user: req.user.userId, // from authMiddleware
+      user: req.user.id, // from authMiddleware
       label,
       address_line1,
       address_line2,
@@ -36,6 +36,9 @@ const createAddress = async (req, res) => {
     res.status(201).json({ message: "Address created successfully", address: newAddress });
 
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "This location already exists for the user" });
+    }
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
@@ -45,7 +48,7 @@ const createAddress = async (req, res) => {
 const updateAddress = async (req, res) => {
   try {
     const addressId = req.params.id;
-    const updates = req.body;
+    const updates = req.body || {};
 
     if (updates.location) {
       if (!Array.isArray(updates.location.coordinates) || updates.location.coordinates.length !== 2) {
@@ -54,7 +57,7 @@ const updateAddress = async (req, res) => {
     }
 
     const updatedAddress = await Address.findOneAndUpdate(
-      { _id: addressId, user: req.user.userId }, // only allow updating user's own address
+      { _id: addressId, user: req.user.id },
       updates,
       { new: true }
     );
@@ -73,7 +76,7 @@ const updateAddress = async (req, res) => {
 // Get all addresses of the user
 const getAddresses = async (req, res) => {
   try {
-    const addresses = await Address.find({ user: req.user.userId });
+    const addresses = await Address.find({ user: req.user.id });
     res.json({ addresses });
   } catch (err) {
     console.error(err);

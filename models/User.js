@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
-const Vendor=require("./Vendor");
-const OrderDetail=require("./Service");
+const Vendor = require("./Vendor");
+const OrderDetail = require("./Service");
 
 // 🔹 Users
 const userSchema = new Schema({
@@ -37,6 +37,11 @@ const addressSchema = new Schema({
     coordinates: { type: [Number], required: true }
   }
 }, { timestamps: true });
+
+addressSchema.index(
+  { user: 1, "location.coordinates": 1 },
+  { unique: true }
+);
 
 
 // 🔹 Reviews
