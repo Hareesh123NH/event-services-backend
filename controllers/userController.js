@@ -1,4 +1,5 @@
 const { Address } = require('../models/User')
+const mongoose=require('mongoose');
 
 // Create a new address
 const createAddress = async (req, res) => {
@@ -49,6 +50,10 @@ const updateAddress = async (req, res) => {
   try {
     const addressId = req.params.id;
     const updates = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(addressId)) {
+      return res.status(400).json({ error: "Invalid ID format" });
+    }
 
     if (updates.location) {
       if (!Array.isArray(updates.location.coordinates) || updates.location.coordinates.length !== 2) {
