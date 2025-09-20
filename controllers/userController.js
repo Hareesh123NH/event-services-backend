@@ -1,4 +1,5 @@
-const { Address } = require('../models/User')
+const { default: mongoose } = require('mongoose');
+const { Address,User } = require('../models/User')
 
 // Create a new address
 const createAddress = async (req, res) => {
@@ -84,8 +85,49 @@ const getAddresses = async (req, res) => {
   }
 };
 
+
+
+// Update profile (full_name & password)
+const updateProfile = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { full_name, phone_number } = req.body || {};
+  
+      // if nothing provided
+      if (!full_name  || !phone_number) {
+        return res.status(400).json({ message: "Please provide data to update" });
+      }
+  
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: userId },
+        { full_name, phone_number }, // direct update
+        { new: true, runValidators: true }
+      );
+  
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      res.json({
+        message: "Profile updated successfully",
+        user: {
+          id: updatedUser._id,
+          full_name: updatedUser.full_name,
+          email: updatedUser.email,
+          phone_number: updatedUser.phone_number,
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+  
+  
+
 module.exports = {
   createAddress,
   updateAddress,
-  getAddresses
+  getAddresses,
+  updateProfile
 };
