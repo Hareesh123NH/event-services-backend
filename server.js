@@ -13,6 +13,7 @@ const authMiddleware = require("./middlewares/authMiddleware");
 // 👉 Routers
 const authRouters = require("./routes/authRouter");
 const userRouters = require("./routes/userRouter");
+const serviceRouters=require("./routes/serviceRouter")
 
 
 
@@ -23,6 +24,7 @@ app.get("/", (req, res) => {
 
 app.use('/auth', authRouters);
 app.use('/user', authMiddleware("user"), userRouters);
+app.use('/',serviceRouters)
 
 
 
