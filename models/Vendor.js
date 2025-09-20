@@ -12,7 +12,6 @@ const vendorSchema = new Schema({
   password: { type: String, required: true },
   phone_number: String,
   description: String,
-  rating: { type: Number, default: 0.0 },
   address: String,
   location: {
     type: { type: String, enum: ["Point"], default: "Point" },
