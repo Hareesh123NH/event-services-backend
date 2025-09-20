@@ -17,9 +17,18 @@ const vendorServiceSchema = new Schema({
   vendor: { type: Schema.Types.ObjectId, ref: "Vendor", required: true },
   service: { type: Schema.Types.ObjectId, ref: "Service", required: true },
   price: { type: Number, required: true },
-  availability: { type: Boolean, default: true },
+  discount: { type: Number, default: 0 },
+  average_rating: { type: Number, default: 0 },
+  total_bookings: { type: Number, default: 0 },
+  status: { type: String, enum: ["active", "inactive", "suspended"], default: "active" },
+  addons: [{
+    title: String,
+    price: Number,
+    description: String
+  }],
   notes: String
 }, { timestamps: true });
+
 
 const Service = mongoose.model("Service", serviceSchema);
 const VendorService = mongoose.model("VendorService", vendorServiceSchema);

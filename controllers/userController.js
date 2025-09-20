@@ -1,4 +1,4 @@
-const { Address } = require('../models/User')
+const { Address,User } = require('../models/User')
 const mongoose=require('mongoose');
 
 // Create a new address
