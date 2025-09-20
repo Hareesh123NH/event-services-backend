@@ -13,19 +13,20 @@ const authMiddleware = require("./middlewares/authMiddleware");
 // 👉 Routers
 const authRouters = require("./routes/authRouter");
 const userRouters = require("./routes/userRouter");
-const serviceRouters=require("./routes/serviceRouter")
+const serviceRouters=require("./routes/serviceRouter");
+const adminRouters=require('./routes/adminRouter');
 
 
 
 // 👉 Test route
-app.get("/", (req, res) => {
-    res.send("API Running 🚀");
-});
+// app.get("/", (req, res) => {
+//     res.send("API Running 🚀");
+// });
 
 app.use('/auth', authRouters);
 app.use('/user', authMiddleware("user"), userRouters);
-app.use('/',serviceRouters)
-
+app.use('/v1',authMiddleware("admin"),serviceRouters);
+app.use('/admin',authMiddleware("admin"),adminRouters);
 
 
 
@@ -46,3 +47,5 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
 
+//signup--admin
+// reject vendors

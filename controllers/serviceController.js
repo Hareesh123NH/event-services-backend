@@ -1,4 +1,7 @@
 const { Service } = require("../models/Service");
+const mongoose=require('mongoose');
+
+
 // post:create service
 
 const createService = async (req, res) => {
@@ -18,6 +21,7 @@ const createService = async (req, res) => {
   
       // Create new service
       const newService = new Service({
+        created_by:req.user.id,
         service_name,
         description,
         base_price,
@@ -29,6 +33,7 @@ const createService = async (req, res) => {
       res.status(201).json({
         message: "Service created successfully",
         service_id: savedService._id,
+        created_by:savedService.created_by
       });
     } catch (err) {
       console.error(err);
@@ -51,7 +56,6 @@ const getService = async (req, res) => {
       }));
   
       res.status(200).json({
-        message: "Services fetched successfully",
         services: result,
       });
     } catch (err) {
@@ -69,6 +73,10 @@ const updateService = async (req, res) => {
       // If no fields provided
       if (!updates || Object.keys(updates).length === 0) {
         return res.status(400).json({ message: "Please provide at least one field to update" });
+      }
+
+      if(!mongoose.Types.ObjectId.isValid(serviceId)){
+        return res.status(400).json({ error: "Invalid service id" });
       }
   
       // Check for null or empty string in any provided field
@@ -96,6 +104,7 @@ const updateService = async (req, res) => {
           description: updatedService.description,
           base_price: updatedService.base_price,
           pricing_type: updatedService.pricing_type,
+          created_by: updatedService.created_by
         },
       });
     } catch (err) {

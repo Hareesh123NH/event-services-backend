@@ -6,6 +6,7 @@ const Vendor=require("./Vendor");
 // 🔹 Services
 const serviceSchema = new Schema({
   service_name: { type: String, required: true },
+  created_by: { type: mongoose.Schema.Types.ObjectId, required: true},
   description: String,
   base_price: Number,
   pricing_type: { type: String, enum: ["per_day", "per_hour", "fixed"], default: "per_day" }
