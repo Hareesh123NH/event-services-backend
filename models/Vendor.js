@@ -35,25 +35,27 @@ const vendorVerificationSchema = new Schema({
 
 // 🔹 Media
 const mediaSchema = new Schema({
-  owner_type: { type: String, enum: ["vendor", "vendor_service", "user", "order", "verification"], required: true },
-  owner_id: { type: Schema.Types.ObjectId, required: true },
-  file_url: { type: String, required: true },
+  owner_type: { type: String, enum: ["Vendor","VendorRegistration"], required: true },
+  owner_id: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "owner_type" },
+  file_data: { type: Buffer, required: true },
   mime_type: String,
-  description: String
+  file_name: String
 }, { timestamps: true });
 
 
 // 🔹 VendorRegistration
 const VendorRegistrationSchema = new Schema({
-  Vender_name: { type: String, required: true },
-  Email: { type: String, required: true, unique: true },
-  Password: { type: String, required: true },
-  Phonenumber: { type: String, required: true },
-  Desc: String,
-  Address: String,
-  Latitude: { type: String, required: true },
-  Longtitude: { type: String, required: true }, // keep same spelling as table
-  Service_id: { type: mongoose.Schema.Types.ObjectId, ref: "Service", required: true }
+  vendor_name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  phonenumber: { type: String, required: true },
+  desc: String,
+  address: String,
+  location: {
+    type: { type: String, enum: ["Point"], default: "Point" },
+    coordinates: { type: [Number], required: true } // [longitude, latitude]
+  },
+  service_id: { type: Schema.Types.ObjectId, ref: "Service", required: true }
 }, { timestamps: true });
 
 

@@ -1,6 +1,7 @@
 const express = require("express");
-const mongoose = require("mongoose");
 require("dotenv").config();
+const mongoose = require("mongoose");
+
 
 const app = express();
 app.use(express.json());
@@ -25,6 +26,7 @@ app.use('/user', authMiddleware("user"), userRouters);
 
 
 
+
 // ===================
 // 🔹 MongoDB Connect
 // ===================
@@ -33,7 +35,6 @@ mongoose.connect(process.env.MONGO_URI, {
     useUnifiedTopology: true,
 }).then(() => console.log("✅ MongoDB connected"))
     .catch(err => console.error("❌ MongoDB connection error:", err));
-
 
 // ===================
 // 🔹 Start Server
