@@ -172,4 +172,38 @@ const acceptVendor = async (req, res) => {
   }
 };
 
-module.exports = { adminSignup, rejectVendor, acceptVendor };
+
+// GET all vendor registrations with media
+const getAllVendorRegistrations = async (req, res) => {
+  try {
+    // 1️ Fetch vendors
+    const vendors = await VendorRegistration.find()
+      .select("vendor_name email phonenumber desc address")
+      .populate("service","_id service_name base_price pricing_type")
+      .lean();
+
+    // 2️ Fetch media for each vendor
+    const vendorIds = vendors.map(v => v._id);
+    const mediaList = await Media.find({
+      owner_type: "VendorRegistration",
+      owner_id: { $in: vendorIds }
+    }).select("_id mime_type owner_id");
+
+    // 3️ Map media to vendors
+    const vendorsWithMedia = vendors.map(vendor => {
+      const mediaForVendor = mediaList.filter(m => m.owner_id.toString() === vendor._id.toString());
+      return {
+        ...vendor,
+        media: mediaForVendor.map(m => ({ id: m._id, mime_type: m.mime_type }))
+      };
+    });
+
+    res.json(vendorsWithMedia);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+module.exports = { adminSignup, rejectVendor, acceptVendor, getAllVendorRegistrations };

@@ -52,7 +52,7 @@ const registerVendor = async (req, res) => {
       desc,
       address,
       location: loc,
-      service_id
+      service:service_id
     });
 
     const newVendor = await vendorDoc.save({ session });
