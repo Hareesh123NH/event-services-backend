@@ -1,4 +1,4 @@
-const { Service } = require("../models/Service");
+const { Service ,VendorService} = require("../models/Service");
 const mongoose=require('mongoose');
 
 
@@ -113,7 +113,79 @@ const updateService = async (req, res) => {
     }
   };
 
-module.exports = { createService, getService ,updateService};
+
+ // Update VendorService
+const updateVendorService = async (req, res) => {
+    try {
+      const vendorId = req.user.id; // From JWT middleware
+      const { serviceId } = req.params;
+  
+      const { price, discount, status, addons, notes } = req.body;
+  
+      // Find VendorService record
+      const vendorService = await VendorService.findOne({
+        vendor: vendorId,
+        service: serviceId
+      });
+  
+      if (!vendorService) {
+        return res.status(404).json({ message: "Vendor service not found" });
+      }
+  
+      // Update fields conditionally
+      if (price !== undefined) {
+        if (price <= 0) return res.status(400).json({ message: "Price must be greater than 0" });
+        vendorService.price = price;
+      }
+  
+      if (discount !== undefined) {
+        if (discount < 0 || discount > 100) {
+          return res.status(400).json({ message: "Discount must be between 0 and 100" });
+        }
+        vendorService.discount = discount;
+      }
+  
+      // ✅ Recalculate final_price if price or discount is updated
+      if (price !== undefined || discount !== undefined) {
+        const effectivePrice = vendorService.price - (vendorService.price * vendorService.discount / 100);
+        vendorService.final_price = Math.max(effectivePrice, 0);
+      }
+  
+      // ✅ Update status but restrict to only "active" or "inactive"
+      if (status !== undefined) {
+        if (!["active", "inactive"].includes(status)) {
+          return res.status(400).json({ message: "Status can only be 'active' or 'inactive'" });
+        }
+        vendorService.status = status;
+      }
+  
+      // ✅ Update addons if provided
+      if (addons !== undefined) {
+        if (!Array.isArray(addons)) {
+          return res.status(400).json({ message: "Addons must be an array" });
+        }
+        vendorService.addons = addons;
+      }
+  
+      // ✅ Update notes
+      if (notes !== undefined) {
+        vendorService.notes = notes;
+      }
+  
+      await vendorService.save();
+  
+      res.status(200).json({
+        message: "Vendor service updated successfully",
+        vendorService
+      });
+    } catch (error) {
+      console.error("Error updating vendor service:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+  
+
+module.exports = { createService, getService ,updateService,updateVendorService};
 
 
 
