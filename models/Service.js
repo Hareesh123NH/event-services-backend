@@ -19,7 +19,7 @@ const vendorServiceSchema = new Schema({
   price: { type: Number, required: true },
   discount: { type: Number, default: 0 },
   final_price:{ type: Number, default: 0 , required: true},
-  average_rating: { type: Number, default: 0 },
+  average_rating: { type: Number, default: 2.5 },
   total_bookings: { type: Number, default: 0 },
   status: { type: String, enum: ["active", "inactive", "suspended"], default: "active" },
   addons: [{

@@ -42,7 +42,7 @@ const registerVendor = async (req, res) => {
     // Create vendor
     const newVendor = await VendorRegistration.create({
       vendor_name, email, password: hashedPassword,
-      phonenumber, desc, address, location:loc, service_id
+      phonenumber, desc, address, location:loc, service:service_id
     });
 
     // Save uploaded files
@@ -55,7 +55,7 @@ const registerVendor = async (req, res) => {
         for (let file of req.files[field]) {
 
           const mediaDoc = await Media.create({
-            owner_type: "Vendor",          // the type of owner
+            owner_type: "VendorRegistration",          // the type of owner
             owner_id: newVendor._id,       // link to the vendor
             file_data: file.buffer,        // the actual file data
             mime_type: file.mimetype,      // file MIME type
