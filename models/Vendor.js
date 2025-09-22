@@ -54,7 +54,7 @@ const VendorRegistrationSchema = new Schema({
     type: { type: String, enum: ["Point"], default: "Point" },
     coordinates: { type: [Number], required: true } // [longitude, latitude]
   },
-  service_id: { type: Schema.Types.ObjectId, ref: "Service", required: true }
+  service: { type: Schema.Types.ObjectId, ref: "Service", required: true }
 }, { timestamps: true });
 
 
