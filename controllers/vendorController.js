@@ -65,6 +65,7 @@ const registerVendor = async (req, res) => {
     for (let field of docFields) {
       if (req.files[field]) {
         for (let file of req.files[field]) {
+
           const mediaDoc = new Media({
             owner_type: "VendorRegistration",          // always Vendor after acceptance
             owner_id: newVendor._id,       // link to the vendor

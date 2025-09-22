@@ -173,26 +173,88 @@ const updateVendorService = async (req, res) => {
       updatedResponse.addons = addons;
     }
 
-    // ✅ Update notes
-    if (notes !== undefined) {
-      vendorService.notes = notes;
-      updatedResponse.notes = notes;
+
+  const getVendorServices = async (req, res) => {
+    try {
+      const vendorId = req.user.id; // ✅ from JWT middleware
+  
+      const services = await VendorService.find({ vendor: vendorId })
+        .select("-vendor -service -_id -createdAt -updatedAt -__v")
+        .populate("service", "service_name base_price pricing_type") // get service details
+        .lean();
+  
+      if (!services || services.length === 0) {
+        return res.status(404).json({ message: "No services found for this vendor" });
+      }
+  
+      res.status(200).json({
+        services
+      });
+    } catch (error) {
+      console.error("Error fetching vendor services:", error);
+      res.status(500).json({ message: "Server error" });
     }
+  };
 
-    await vendorService.save();
+//post: add existing services
 
-    res.status(200).json({
-      message: "Vendor service updated successfully",
-      updatedResponse
-    });
-  } catch (error) {
-    console.error("Error updating vendor service:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+const addVendorService = async (req, res) => {
+    try {
+      const vendorId = req.user.id; // from JWT
+      const { serviceId } = req.params;
+      let { price, discount} = req.body || {};
+      const { status, addons, notes } =req.body || {};
+  
+      // Check if service exists
+      const service = await Service.findById(serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+  
+      // Check if vendor already has this service
+      const existing = await VendorService.findOne({ vendor: vendorId, service: serviceId });
+      if (existing) {
+        return res.status(400).json({ message: "You already have this service" });
+      }
+  
+      // Apply defaults if not provided
+      price = (price && price > 0) ? price : service.base_price;
+      discount=(discount && discount>=0 && discount<=100  ? discount : 0);
+      const appliedDiscount =price * discount / 100;
+  
+      // Ensure finalPrice can't be negative
+      const computedFinalPrice = price - appliedDiscount;
 
+      let appliedStatus = "active";
+      if (status && ["active", "inactive"].includes(status)) {
+        appliedStatus = status;
+      }
+  
+      // Create VendorService
+      const newVendorService = new VendorService({
+        vendor: vendorId,
+        service: serviceId,
+        price: price,
+        discount: discount ,
+        final_price: computedFinalPrice,
+        status: appliedStatus,
+        addons: addons || [],
+        notes: notes || ""
+      });
+  
+      const saved = await newVendorService.save();
+  
+      res.status(201).json({
+        message: "Service added to vendor successfully"
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
 
-module.exports = { createService, getService, updateService, updateVendorService };
+module.exports = { createService, getService ,updateService,updateVendorService,getVendorServices,addVendorService };
+
 
 
 
