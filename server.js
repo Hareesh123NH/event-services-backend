@@ -25,7 +25,7 @@ const adminRouters=require('./routes/adminRouter');
 
 app.use('/auth', authRouters);
 app.use('/user', authMiddleware("user"), userRouters);
-app.use('/v1',authMiddleware("admin"),serviceRouters);
+app.use('/service',serviceRouters);
 app.use('/admin',authMiddleware("admin"),adminRouters);
 
 
