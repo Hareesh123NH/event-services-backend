@@ -3,6 +3,8 @@ const { VendorRegistration, Media } = require("../models/Vendor");
 const { Service } = require("../models/Service");
 const mongoose = require('mongoose');
 
+const { verifyOTP } = require('./authController')
+
 // Vendor Registration with documents
 const registerVendor = async (req, res) => {
 
@@ -10,10 +12,10 @@ const registerVendor = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { vendor_name, email, password, phonenumber, desc, address, location, service_id } = req.body || {};
+    const { vendor_name, email, password, phonenumber, desc, address, location, service_id, otp } = req.body || {};
 
     // Validate required fields
-    if (!vendor_name || !email || !password || !phonenumber || !location || !service_id) {
+    if (!otp || !vendor_name || !email || !password || !phonenumber || !location || !service_id) {
 
       return res.status(400).json({ error: "All required fields must be provided" });
     }
@@ -21,6 +23,13 @@ const registerVendor = async (req, res) => {
     if (await VendorRegistration.findOne({ email }).session(session)) {
       return res.status(400).json({ error: "Your details are under verification!" });
     }
+
+    const verify = verifyOTP(email, otp);
+
+    if (!verify.ok) {
+      return res.status(400).json({ message: verify.reason });
+    }
+
 
     if (!mongoose.Types.ObjectId.isValid(service_id) || !await Service.findById(service_id).session(session)) {
       return res.status(400).json({ error: "Invalid service id" });
@@ -52,7 +61,7 @@ const registerVendor = async (req, res) => {
       desc,
       address,
       location: loc,
-      service:service_id
+      service: service_id
     });
 
     const newVendor = await vendorDoc.save({ session });
@@ -79,7 +88,7 @@ const registerVendor = async (req, res) => {
           uploadedFiles.push({
             mime_type: savedMedia.mime_type,
             file: savedMedia.file_name,
-            fileId:savedMedia._id
+            fileId: savedMedia._id
           });
         }
       }
