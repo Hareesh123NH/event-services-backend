@@ -1,5 +1,8 @@
 const { Address,User } = require('../models/User')
 const mongoose=require('mongoose');
+const { Service,VendorService } = require("../models/Service");
+const Vendor = require("../models/Vendor");
+
 
 // Create a new address
 const createAddress = async (req, res) => {
@@ -127,11 +130,91 @@ const updateProfile = async (req, res) => {
     }
   };
   
+
+//get vendor services
+const searchVendorServices = async (req, res) => {
+    try {
+      let { query, page, limit } = req.query;
   
+      // ---------- DEFAULTS ----------
+      if (!page) page = 1;        // default page = 1
+      if (!limit) limit = 10;     // default limit = 10
+      if (!query) query = "";     // default query = "" (means fetch all)
+  
+      // ---------- VALIDATIONS ----------
+      page = parseInt(page);
+      limit = parseInt(limit);
+  
+      if (isNaN(page) || page <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Page must be a positive integer",
+        });
+      }
+  
+      if (isNaN(limit) || limit <= 0 || limit > 100) {
+        return res.status(400).json({
+          success: false,
+          message: "Limit must be between 1 and 100",
+        });
+      }
+  
+      let filter = { status: "active" };
+  
+      // ---------- IF USER GAVE QUERY ----------
+      if (query.trim().length > 0) {
+        const services = await Service.find({
+          name: { $regex: query, $options: "i" },
+        }).select("_id");
+  
+        if (services.length === 0) {
+          return res.status(200).json({
+            success: true,
+            message: "No vendor services found",
+            data: [],
+            pagination: { total: 0, page, limit },
+          });
+        }
+  
+        const serviceIds = services.map((s) => s._id);
+        filter.service = { $in: serviceIds };
+      }
+  
+      // ---------- FETCH VENDOR SERVICES ----------
+      const total = await VendorService.countDocuments(filter);
+  
+      const vendorServices = await VendorService.find(filter)
+        .populate("vendor", "name email phone")
+        .populate("service", "name description category")
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+  
+      return res.status(200).json({
+        success: true,
+        message: "Vendor services fetched successfully",
+        data: vendorServices,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      console.error("Search VendorServices Error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
+    }
+  };
 
 module.exports = {
   createAddress,
   updateAddress,
   getAddresses,
-  updateProfile
+  updateProfile,
+  searchVendorServices
 };
