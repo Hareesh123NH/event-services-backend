@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 require("dotenv").config();
 const mongoose = require("mongoose");
 
@@ -7,14 +8,22 @@ const app = express();
 app.use(express.json());
 
 
+// app.use(cors({
+//     origin: process.env.CLIENT_BASE_URL,
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//     credentials: true
+// }));
+
+app.use(cors());
+
 // 👉 Middleware
 const authMiddleware = require("./middlewares/authMiddleware");
 
 // 👉 Routers
 const authRouters = require("./routes/authRouter");
 const userRouters = require("./routes/userRouter");
-const serviceRouters=require("./routes/serviceRouter");
-const adminRouters=require('./routes/adminRouter');
+const serviceRouters = require("./routes/serviceRouter");
+const adminRouters = require('./routes/adminRouter');
 
 
 
@@ -25,8 +34,8 @@ const adminRouters=require('./routes/adminRouter');
 
 app.use('/auth', authRouters);
 app.use('/user', authMiddleware("user"), userRouters);
-app.use('/service',serviceRouters);
-app.use('/admin',authMiddleware("admin"),adminRouters);
+app.use('/service', serviceRouters);
+app.use('/admin', authMiddleware("admin"), adminRouters);
 
 
 

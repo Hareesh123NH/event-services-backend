@@ -202,17 +202,17 @@ const forgetPassword = async (req, res) => {
     if (!user) return res.status(401).json({ message: "Email not exist!" });
 
     // Create token valid for 15 minutes
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "15m" });
+    const token = jwt.sign({ id: user._id, role: role }, JWT_SECRET, { expiresIn: "15m" });
 
-    const link = `http://localhost:3000/reset-password/${token}`;
-
+    const link = `${process.env.CLIENT_BASE_URL}/forgot_password.html?token=${token}`;
 
     // Send email
     const info = await transporter.sendMail({
       from: process.env.MAIL_ID,
       to: user.email,
       subject: "Password Reset",
-      text: `Click here to reset your password: ${link}`
+      // text: `Click here to reset your password: ${link}`,
+      html: `<p>Click <a href="${link}">here</a> to reset your password.</p>`
     });
 
     res.status(200).json({
@@ -226,4 +226,37 @@ const forgetPassword = async (req, res) => {
   }
 }
 
-module.exports = { signup, login, forgetPassword, sendOTP, verifyOTP };
+
+const setPassword = async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body || {};
+
+  if(!password){
+    return res.status(400).json({message:"Password must required!"});
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { id, role } = decoded;
+
+    let Model = getModel(role);
+
+    if (!Model) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(password, salt);
+
+    const user = await Model.findByIdAndUpdate(id, { password: hashed });
+
+    if (!user) return res.status(400).json({ message: "Invalid token" });
+
+    res.status(200).json({ message: "Password reset successful" });
+  } catch (err) {
+    res.status(400).json({ message: "Invalid or expired token" });
+  }
+}
+
+module.exports = { signup, login, forgetPassword, sendOTP, verifyOTP, setPassword };
