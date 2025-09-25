@@ -179,7 +179,7 @@ const getAllVendorRegistrations = async (req, res) => {
     // 1️ Fetch vendors
     const vendors = await VendorRegistration.find()
       .select("vendor_name email phonenumber desc address")
-      .populate("service","_id service_name base_price pricing_type")
+      .populate("service", "_id service_name base_price pricing_type")
       .lean();
 
     // 2️ Fetch media for each vendor
@@ -205,5 +205,26 @@ const getAllVendorRegistrations = async (req, res) => {
   }
 };
 
+// GET /media/:id
+const getMediaFile = async (req, res) => {
+  try {
+    const media = await Media.findById(req.params.id);
 
-module.exports = { adminSignup, rejectVendor, acceptVendor, getAllVendorRegistrations };
+    if (!media) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    // Set headers so the browser knows how to handle the file
+    res.set({
+      "Content-Type": media.mime_type,
+      "Content-Disposition": `inline; filename="${media.file_name}"`, // use "attachment" instead of "inline" for download
+    });
+
+    res.send(media.file_data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+module.exports = { adminSignup, rejectVendor, acceptVendor, getAllVendorRegistrations, getMediaFile };
