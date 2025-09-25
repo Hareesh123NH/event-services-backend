@@ -123,7 +123,7 @@ function verifyOTP(email, providedOtp) {
     return { ok: false, reason: 'Otp expired' };
   }
 
-  const match = record.otp === providedOtp;
+  const match = record.otp === Number(providedOtp);
   if (match) otpStore.delete(email);
 
   return { ok: match, reason: match ? 'verified' : 'wrong_otp' };

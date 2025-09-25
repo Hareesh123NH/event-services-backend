@@ -131,14 +131,14 @@ const acceptVendor = async (req, res) => {
     );
 
 
-    const service = await Service.findById(vendorReg.service_id).session(session);
+    const service = await Service.findById(vendorReg.service).session(session);
 
     // ✅ Create VendorService (linked with chosen service)
     const vendorService = new VendorService({
       vendor: newVendor._id,
       service: service._id,
       price: service.base_price, // default or based on logic
-      discount_price: service.base_price
+      final_price: service.base_price
     });
     await vendorService.save({ session });
 
