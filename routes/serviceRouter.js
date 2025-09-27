@@ -4,7 +4,7 @@ const authMiddleware=require("../middlewares/authMiddleware");
 const { createService, getService,updateService,updateVendorService ,getVendorServices,addVendorService}=require('../controllers/serviceController');
 
 router.post("/create",authMiddleware("admin"),createService);
-router.get("/",authMiddleware("admin","vendor","user"),getService);
+router.get("/",getService);
 router.put("/:id",authMiddleware("admin"), updateService);
 
 // PATCH /vendor-service/:serviceId

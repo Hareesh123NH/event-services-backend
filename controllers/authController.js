@@ -207,17 +207,24 @@ const forgetPassword = async (req, res) => {
     const link = `${process.env.CLIENT_BASE_URL}/forgot_password.html?token=${token}`;
 
     // Send email
-    const info = await transporter.sendMail({
+    await transporter.sendMail({
       from: process.env.MAIL_ID,
       to: user.email,
       subject: "Password Reset",
       // text: `Click here to reset your password: ${link}`,
-      html: `<p>Click <a href="${link}">here</a> to reset your password.</p>`
+      // html: `<p>Click <a href="${link}">here</a> to reset your password.</p>
+      //       <p>Copy<a href="${token}">Token</a></p>  `
+
+      html: `
+            <p>Click <a href="${link}">here</a> to reset your password.</p>
+            <p>If you prefer, you can copy and paste this token:</p>
+            <pre style="background:#f4f4f4;padding:10px;border-radius:5px;">${token}</pre>
+          `
+
     });
 
     res.status(200).json({
-      message: "Password reset link sent to email",
-      id: info.messageId
+      message: "Password reset link sent to email"
     });
 
   } catch (err) {
@@ -231,8 +238,8 @@ const setPassword = async (req, res) => {
   const { token } = req.params;
   const { password } = req.body || {};
 
-  if(!password){
-    return res.status(400).json({message:"Password must required!"});
+  if (!password) {
+    return res.status(400).json({ message: "Password must required!" });
   }
 
   try {

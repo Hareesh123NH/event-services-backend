@@ -122,6 +122,11 @@ const updateVendorService = async (req, res) => {
 
     const { price, discount, status, addons, notes } = req.body;
 
+
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({ error: "Invalid service id" });
+    }
+
     // Find VendorService record
     const vendorService = await VendorService.findOne({
       vendor: vendorId,
@@ -172,6 +177,14 @@ const updateVendorService = async (req, res) => {
       vendorService.addons = addons;
       updatedResponse.addons = addons;
     }
+
+
+    await vendorService.save();
+
+    return res.status(200).json({
+      message:"Successfully updated vender-service",
+      updatedResponse
+    })
   }
   catch (error) {
     console.error("Error updating vendor service:", error);
