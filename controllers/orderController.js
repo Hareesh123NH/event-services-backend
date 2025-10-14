@@ -203,5 +203,252 @@ const updateProviderStatus = async (req, res) => {
     }
 };
 
-module.exports = { createOrder, updateProviderStatus };
+
+// userhistory
+const getOrderHistory = async (req, res) => {
+    try {
+        const userId = req.user.id; // from middleware
+
+        // 1️⃣ Fetch all orders placed by this user
+        const orders = await Order.find({ user: userId })
+            .sort({ createdAt: -1 }) // latest first
+            .populate("event_address") // optional
+            .lean(); // return plain JS objects for easier manipulation
+
+        if (!orders.length) {
+            return res.status(200).json({ message: "No orders found", orders: [] });
+        }
+
+        // 2️⃣ Get all order IDs
+        const orderIds = orders.map(order => order._id);
+
+        // 3️⃣ Fetch order details for those orders
+        const orderDetails = await OrderDetail.find({ order: { $in: orderIds } })
+            .populate({
+                path: "vendor_service",
+                populate: { path: "vendor", select: "name phone email" } // optional nested populate
+            })
+            .lean();
+
+        // 4️⃣ Group orderDetails by orderId
+        const detailsByOrder = {};
+        for (const detail of orderDetails) {
+            const orderId = detail.order.toString();
+            if (!detailsByOrder[orderId]) detailsByOrder[orderId] = [];
+            detailsByOrder[orderId].push(detail);
+        }
+
+        // 5️⃣ Merge details into each order
+        const ordersWithDetails = orders.map(order => ({
+            ...order,
+            services: detailsByOrder[order._id.toString()] || []
+        }));
+
+        const simplifiedOrders = ordersWithDetails.map(order => ({
+            _id: order._id,
+            event_date: order.event_date,
+            total_amount: order.total_amount,
+            status: order.status,
+            payment_status: order.payment_status,
+            order_date: order.order_date,
+            event_address: order.event_address
+                ? {
+                    _id: order.event_address._id,
+                    label: order.event_address.label,
+                    address_line1: order.event_address.address_line1,
+                    address_line2: order.event_address.address_line2,
+                    city: order.event_address.city
+
+                }
+                : null,
+            services: order.services?.map(service => ({
+                _id: service._id,
+                quantity: service.quantity,
+                price: service.price,
+                scheduled_from: service.scheduled_from,
+                scheduled_to: service.scheduled_to,
+                provider_status: service.provider_status,
+                vendor_service: service.vendor_service
+                    ? {
+                        _id: service.vendor_service._id,
+                        final_price: service.vendor_service.final_price,
+                        status: service.vendor_service.status,
+                        vendor: {
+                            _id: service.vendor_service.vendor?._id,
+                            email: service.vendor_service.vendor?.email
+                        },
+                        service: service.vendor_service.service
+                    }
+                    : null
+            }))
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: simplifiedOrders.length,
+            orders: simplifiedOrders
+        });
+
+
+    } catch (error) {
+        console.error("Error fetching order history:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch order history",
+            error: error.message
+        });
+    }
+};
+
+
+//vendor histroy 
+const getVendorOrderHistory = async (req, res) => {
+    try {
+        const vendorId = req.user.id; // vendor ID from token (middleware verified)
+
+        // 1️⃣ Find all vendor services owned by this vendor
+        const vendorServices = await VendorService.find({ vendor: vendorId }).select("_id");
+
+        if (!vendorServices.length) {
+            return res.status(200).json({
+                success: true,
+                message: "No services found for this vendor",
+                orders: []
+            });
+        }
+
+        const vendorServiceIds = vendorServices.map(vs => vs._id);
+
+        // 2️⃣ Find all order details that reference any of these vendor services
+        const orderDetails = await OrderDetail.find({ vendor_service: { $in: vendorServiceIds } })
+            .populate("vendor_service") // for showing which service it was
+            .populate({
+                path: "order",
+                populate: { path: "user", select: "name email phone" } // optional: show user info
+            })
+            .populate({
+                path: "order",
+                populate: { path: "event_address" } // optional: show event address
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        if (!orderDetails.length) {
+            return res.status(200).json({
+                success: true,
+                message: "No orders found for this vendor",
+                orders: []
+            });
+        }
+
+        // 3️⃣ Group orderDetails by order (so one order may have multiple services)
+        const groupedOrders = {};
+        for (const detail of orderDetails) {
+            const orderId = detail.order._id.toString();
+            if (!groupedOrders[orderId]) {
+                groupedOrders[orderId] = {
+                    order: detail.order,
+                    services: []
+                };
+            }
+            groupedOrders[orderId].services.push(detail);
+        }
+
+        // 4️⃣ Convert object to array for clean response
+        const orders = Object.values(groupedOrders);
+
+        const simplifiedOrders = orders.map(o => ({
+            _id: o.order._id,
+            event_date: o.order.event_date,
+            total_amount: o.order.total_amount,
+            status: o.order.status,
+            payment_status: o.order.payment_status,
+            order_date: o.order.order_date,
+            user: o.order.user
+                ? {
+                    _id: o.order.user._id,
+                    email: o.order.user.email
+                }
+                : null,
+            event_address: o.order.event_address
+                ? {
+                    _id: o.order.event_address._id,
+                    label: o.order.event_address.label,
+                    address_line1: o.order.event_address.address_line1,
+                    address_line2: o.order.event_address.address_line2,
+                    city: o.order.event_address.city
+                }
+                : null,
+            services: o.services.map(s => ({
+                _id: s._id,
+                quantity: s.quantity,
+                price: s.price,
+                provider_status: s.provider_status,
+                scheduled_from: s.scheduled_from,
+                scheduled_to: s.scheduled_to,
+                vendor_service: s.vendor_service
+                    ? {
+                        _id: s.vendor_service._id,
+                        final_price: s.vendor_service.final_price,
+                        status: s.vendor_service.status,
+                        service: s.vendor_service.service
+                    }
+                    : null
+            }))
+        }));
+
+
+        res.status(200).json({
+            success: true,
+            count: simplifiedOrders.length,
+            orders: simplifiedOrders
+        });
+
+
+    } catch (error) {
+        console.error("Error fetching vendor order history:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch vendor order history",
+            error: error.message
+        });
+    }
+};
+
+const getVendorPendingOrders = async (req, res) => {
+    try {
+        const vendorId = req.user.id; // vendor's id from auth middleware
+
+        // Find orderDetails where the vendor_service belongs to this vendor and provider_status is pending
+        const orderDetails = await OrderDetail.find({ provider_status: "pending" })
+            .populate({
+                path: "vendor_service",
+                match: { vendor: vendorId }, // filter only this vendor's services
+                select: "vendor" // select fields you want
+            })
+            .populate({
+                path: "order", // populate parent order
+                select: "user event_address event_date status" // select fields you want
+            });
+
+
+
+        res.status(200).json({
+            success: true,
+            count: orderDetails.length,
+            orderDetails: orderDetails
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+}
+
+module.exports = {
+    getOrderHistory,
+    getVendorOrderHistory,
+    getVendorPendingOrders,
+    createOrder,
+    updateProviderStatus
+};
 
