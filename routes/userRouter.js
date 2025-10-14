@@ -7,7 +7,7 @@ router.put("/address/:id",updateAddress);
 router.get("/address", getAddresses);
 router.put("/update-profile",updateProfile);
 
-router.get("/services",searchVendorServices)
+router.get("/services/:addressId",searchVendorServices)
 
 // TODO search for nearest vendor-servies by service_id with filters like price,query etc
 

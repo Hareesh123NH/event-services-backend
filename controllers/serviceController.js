@@ -1,5 +1,6 @@
 const { Service, VendorService } = require("../models/Service");
 const mongoose = require('mongoose');
+const { Vendor } = require("../models/Vendor");
 
 
 // post:create service
@@ -182,7 +183,7 @@ const updateVendorService = async (req, res) => {
     await vendorService.save();
 
     return res.status(200).json({
-      message:"Successfully updated vender-service",
+      message: "Successfully updated vender-service",
       updatedResponse
     })
   }
@@ -249,6 +250,8 @@ const addVendorService = async (req, res) => {
       appliedStatus = status;
     }
 
+    const vendor = await Vendor.findById(vendorId).select('location');
+
     // Create VendorService
     const newVendorService = new VendorService({
       vendor: vendorId,
@@ -258,7 +261,8 @@ const addVendorService = async (req, res) => {
       final_price: computedFinalPrice,
       status: appliedStatus,
       addons: addons || [],
-      notes: notes || ""
+      notes: notes || "",
+      location: vendor.location
     });
 
     const saved = await newVendorService.save();

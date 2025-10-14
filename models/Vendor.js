@@ -18,7 +18,7 @@ const vendorSchema = new Schema({
     coordinates: { type: [Number], required: true } // [longitude, latitude]
   }
 }, { timestamps: true });
-vendorSchema.index({ location: "2dsphere" });
+
 
 
 // 🔹 Vendor Verifications

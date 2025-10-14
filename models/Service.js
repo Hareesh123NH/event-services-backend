@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const { Schema } = mongoose;
-const Vendor = require("./Vendor");
+const { Vendor } = require("./Vendor");
 
 // 🔹 Services
 const serviceSchema = new Schema({
@@ -27,8 +27,17 @@ const vendorServiceSchema = new Schema({
     price: Number,
     description: String
   }],
-  notes: String
+  notes: String,
+  location: {
+    type: { type: String, enum: ["Point"], default: "Point" },
+    coordinates: { type: [Number], required: true } // [longitude, latitude]
+  }
 }, { timestamps: true });
+
+
+
+vendorServiceSchema.index({ location: "2dsphere" });
+
 
 
 const Service = mongoose.model("Service", serviceSchema);
