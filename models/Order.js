@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 
 const { Schema } = mongoose;
-const { User, Address }=require("./User");
-const VendorService=require("./Service");
+const { User, Address } = require("./User");
+const VendorService = require("./Service");
 
 
 // 🔹 Orders
@@ -12,7 +12,8 @@ const orderSchema = new Schema({
     order_date: { type: Date, default: Date.now },
     event_date: { type: Date, required: true },
     total_amount: { type: Number, required: true },
-    status: { type: String, enum: ["pending", "confirmed", "completed", "cancelled"], default: "pending" },
+    actual_amount: { type: Number, require: true, default: 0 },
+    status: { type: String, enum: ["pending", "confirmed", "completed", "partially_confirmed", "cancelled"], default: "pending" },
     payment_status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" }
 }, { timestamps: true });
 
