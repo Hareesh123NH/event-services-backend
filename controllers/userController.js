@@ -341,10 +341,59 @@ const searchVendorServices = async (req, res) => {
 };
 
 
+//get vendor service by ID
+
+const getVendorServiceById = async (req, res) => {
+    try {
+      const { id } = req.params;
+  
+      // Validate ObjectId
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid vendor service ID format",
+        });
+      }
+  
+      const vendorService = await VendorService.findById(id)
+        // exclude fields directly here
+        .select("-location -createdAt -updatedAt -__v")
+        .populate({
+          path: "vendor",
+          select: "full_name email phone_number description address",
+        })
+        .populate({
+          path: "service",
+          select: "service_name description base_price pricing_type",
+        });
+  
+      if (!vendorService) {
+        return res.status(404).json({
+          success: false,
+          message: "Vendor service not found",
+        });
+      }
+  
+      res.status(200).json({
+        success: true,
+        message: "Vendor service details fetched successfully",
+        data: vendorService,
+      });
+    } catch (error) {
+      console.error("Error fetching vendor service details:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+  };
+
 module.exports = {
   createAddress,
   updateAddress,
   getAddresses,
   updateProfile,
-  searchVendorServices
+  searchVendorServices,
+  getVendorServiceById
 };
