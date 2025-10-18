@@ -212,7 +212,7 @@ const getOrderHistory = async (req, res) => {
         // 1️⃣ Fetch all orders placed by this user
         const orders = await Order.find({ user: userId })
             .sort({ createdAt: -1 }) // latest first
-            .populate("event_address") // optional
+            .populate("event_address")
             .lean(); // return plain JS objects for easier manipulation
 
         if (!orders.length) {
@@ -226,7 +226,10 @@ const getOrderHistory = async (req, res) => {
         const orderDetails = await OrderDetail.find({ order: { $in: orderIds } })
             .populate({
                 path: "vendor_service",
-                populate: { path: "vendor", select: "name phone email" } // optional nested populate
+                populate: {
+                    path: "vendor",
+                    select: "full_name phone_number email"
+                }
             })
             .lean();
 
@@ -275,7 +278,9 @@ const getOrderHistory = async (req, res) => {
                         status: service.vendor_service.status,
                         vendor: {
                             _id: service.vendor_service.vendor?._id,
-                            email: service.vendor_service.vendor?.email
+                            email: service.vendor_service.vendor?.email,
+                            name: service.vendor_service.vendor?.full_name,
+                            phone_number: service.vendor_service.vendor?.phone_number
                         },
                         service: service.vendor_service.service
                     }
@@ -415,35 +420,109 @@ const getVendorOrderHistory = async (req, res) => {
     }
 };
 
+// const getVendorPendingOrders = async (req, res) => {
+//     try {
+//         const vendorId = req.user.id; // vendor's id from auth middleware
+
+//         // Find orderDetails where the vendor_service belongs to this vendor and provider_status is pending
+//         const orderDetails = await OrderDetail.find({ provider_status: "pending" })
+//             .populate({
+//                 path: "vendor_service",
+//                 match: { vendor: vendorId }, // filter only this vendor's services
+//                 select: "vendor" // select fields you want
+//             })
+//             .populate({
+//                 path: "order", // populate parent order
+//                 select: "user event_address event_date status" // select fields you want
+//             });
+
+
+
+//         res.status(200).json({
+//             success: true,
+//             count: orderDetails.length,
+//             orderDetails: orderDetails
+//         });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ success: false, message: "Server Error" });
+//     }
+// }
+
+
+
 const getVendorPendingOrders = async (req, res) => {
     try {
-        const vendorId = req.user.id; // vendor's id from auth middleware
-
-        // Find orderDetails where the vendor_service belongs to this vendor and provider_status is pending
-        const orderDetails = await OrderDetail.find({ provider_status: "pending" })
-            .populate({
-                path: "vendor_service",
-                match: { vendor: vendorId }, // filter only this vendor's services
-                select: "vendor" // select fields you want
-            })
-            .populate({
-                path: "order", // populate parent order
-                select: "user event_address event_date status" // select fields you want
-            });
-
-
-
-        res.status(200).json({
-            success: true,
-            count: orderDetails.length,
-            orderDetails: orderDetails
+      const vendorId = req.user.id; // vendor's id from auth middleware
+  
+      // Fetch orderDetails with populated vendor_service, service, and order.user
+      const orderDetails = await OrderDetail.find({ provider_status: "pending" })
+        .populate({
+          path: "vendor_service",
+          match: { vendor: vendorId },
+          select: "price service", // fields from VendorService
+          populate: {
+            path: "service",
+            select: "service_name" // get service_name from Service schema
+          }
+        })
+        .populate({
+          path: "order",
+          select: "user event_address event_date status",
+          populate: [
+            {
+              path: "user",
+              model: "User",
+              select: "full_name email phone_number"
+            },
+            {
+              path: "event_address",
+              model: "Address",
+              select: "line1 line2 city state pincode" // adjust based on your schema
+            }
+          ]
         });
+  
+      // Filter out orderDetails where vendor_service didn't match
+      const filteredDetails = orderDetails.filter(od => od.vendor_service);
+  
+      // Group services by order
+      const grouped = {};
+      filteredDetails.forEach(od => {
+        const orderId = od.order._id.toString();
+  
+        if (!grouped[orderId]) {
+          grouped[orderId] = {
+            order_id: od.order._id,
+            user: od.order.user,
+            event_address: od.order.event_address,
+            event_date: od.order.event_date,
+            status: od.order.status,
+            services: []
+          };
+        }
+  
+        grouped[orderId].services.push({
+          service_id: od.vendor_service._id,
+          service_name: od.vendor_service.service.service_name, // populated Service
+          quantity: od.quantity,
+          price: od.price,
+          provider_status: od.provider_status,
+          scheduled_from: od.scheduled_from,
+          scheduled_to: od.scheduled_to
+        });
+      });
+  
+      res.status(200).json({
+        success: true,
+        count: Object.keys(grouped).length,
+        orders: Object.values(grouped)
+      });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, message: "Server Error" });
+      console.error(err);
+      res.status(500).json({ success: false, message: "Server Error" });
     }
-}
-
+  };
 module.exports = {
     getOrderHistory,
     getVendorOrderHistory,
