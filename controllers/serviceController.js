@@ -1,7 +1,7 @@
 const { Service, VendorService } = require("../models/Service");
 const mongoose = require('mongoose');
 const { Vendor } = require("../models/Vendor");
-
+const jwt = require("jsonwebtoken");
 
 // post:create service
 
@@ -46,21 +46,65 @@ const createService = async (req, res) => {
 
 const getService = async (req, res) => {
   try {
-    const services = await Service.find();
+    const token = req.headers.authorization?.split(" ")[1];
 
-    const result = services.map(s => ({
-      service_id: s._id,
-      service_name: s.service_name,
-      description: s.description,
-      base_price: s.base_price,
-      pricing_type: s.pricing_type,
-    }));
+    // 🟢 1️⃣ Fetch all services first
+    const services = await Service.find().lean();
 
-    res.status(200).json({
-      services: result,
-    });
+    // 🟢 2️⃣ If no token → return all public services
+    if (!token) {
+      return res.status(200).json(
+        services.map(({ _id, service_name, base_price, pricing_type }) => ({
+          service_id: _id,
+          service_name,
+          base_price,
+          pricing_type,
+        }))
+      );
+    }
+
+    // 🟢 3️⃣ Verify token
+    let user;
+    try {
+      user = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+
+    // 🟢 4️⃣ Admin → return all services
+    if (user.role === "admin") {
+      return res.status(200).json(services);
+    }
+
+    // 🟢 5️⃣ Vendor → return only services not already added
+    if (user.role === "vendor") {
+      const vendorId = user.id;
+
+      const vendorServices = await VendorService.find({ vendor: vendorId })
+        .select("service -_id")
+        .lean();
+
+      const vendorServiceIds = new Set(vendorServices.map(vs => vs.service.toString()));
+
+      const availableServices = services.filter(
+        s => !vendorServiceIds.has(s._id.toString())
+      );
+
+      return res.status(200).json(
+        availableServices.map(({ _id, service_name, base_price, pricing_type }) => ({
+          service_id: _id,
+          service_name,
+          base_price,
+          pricing_type,
+        }))
+      );
+    }
+
+    // 🟢 6️⃣ Default: no matching role → empty list
+    return res.status(200).json([]);
+
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching services:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -199,8 +243,8 @@ const getVendorServices = async (req, res) => {
     const vendorId = req.user.id; // ✅ from JWT middleware
 
     const services = await VendorService.find({ vendor: vendorId })
-      .select("-vendor -service -_id -createdAt -updatedAt -__v")
-      .populate("service", "service_name base_price pricing_type") // get service details
+      .select("-vendor -service -_id -createdAt -updatedAt -__v -location")
+      .populate("service", "service_name base_price pricing_type description") // get service details
       .lean();
 
     if (!services || services.length === 0) {
