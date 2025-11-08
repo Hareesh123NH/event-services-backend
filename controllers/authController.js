@@ -10,16 +10,13 @@ const otpStore = new Map();
 
 // Nodemailer transporter (use Gmail or SMTP)
 const transporter = nodemailer.createTransport({
-  // service: "gmail",
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
   auth: {
-    user: process.env.MAIL_ID,
-    pass: process.env.MAIL_PASSWORD
-  }
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
 });
-
 
 const getModel = (role) => {
   switch (role.toLowerCase()) {
