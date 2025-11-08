@@ -74,7 +74,7 @@ const updateAddress = async (req, res) => {
       return res.status(404).json({ message: "Address not found" });
     }
 
-    res.json({ message: "Address updated successfully", address: updatedAddress });
+    res.json({ message: "Address updated successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -94,134 +94,16 @@ const getAddresses = async (req, res) => {
 
 
 
-// Update profile (full_name & password)
-const updateProfile = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { full_name, phone_number } = req.body || {};
-
-    // if nothing provided
-    if (!full_name || !phone_number) {
-      return res.status(400).json({ message: "Please provide data to update" });
-    }
-
-    const updatedUser = await User.findOneAndUpdate(
-      { _id: userId },
-      { full_name, phone_number }, // direct update
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({
-      message: "Profile updated successfully",
-      user: {
-        id: updatedUser._id,
-        full_name: updatedUser.full_name,
-        email: updatedUser.email,
-        phone_number: updatedUser.phone_number,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-
-//get vendor services
-// const searchVendorServices = async (req, res) => {
-//     try {
-//       let { query, page, limit } = req.query;
-
-//       // ---------- DEFAULTS ----------
-//       if (!page) page = 1;        // default page = 1
-//       if (!limit) limit = 10;     // default limit = 10
-//       if (!query) query = "";     // default query = "" (means fetch all)
-
-//       // ---------- VALIDATIONS ----------
-//       page = parseInt(page);
-//       limit = parseInt(limit);
-
-//       if (isNaN(page) || page <= 0) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Page must be a positive integer",
-//         });
-//       }
-
-//       if (isNaN(limit) || limit <= 0 || limit > 100) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Limit must be between 1 and 100",
-//         });
-//       }
-
-//       let filter = { status: "active" };
-
-//       // ---------- IF USER GAVE QUERY ----------
-//       if (query.trim().length > 0) {
-//         const services = await Service.find({
-//           name: { $regex: query, $options: "i" },
-//         }).select("_id");
-
-//         if (services.length === 0) {
-//           return res.status(200).json({
-//             success: true,
-//             message: "No vendor services found",
-//             data: [],
-//             pagination: { total: 0, page, limit },
-//           });
-//         }
-
-//         const serviceIds = services.map((s) => s._id);
-//         filter.service = { $in: serviceIds };
-//       }
-
-//       // ---------- FETCH VENDOR SERVICES ----------
-//       const total = await VendorService.countDocuments(filter);
-
-//       const vendorServices = await VendorService.find(filter)
-//         .populate("vendor", "name email phone")
-//         .populate("service", "name description category")
-//         .skip((page - 1) * limit)
-//         .limit(limit)
-//         .sort({ createdAt: -1 });
-
-//       return res.status(200).json({
-//         success: true,
-//         message: "Vendor services fetched successfully",
-//         data: vendorServices,
-//         pagination: {
-//           total,
-//           page,
-//           limit,
-//           totalPages: Math.ceil(total / limit),
-//         },
-//       });
-//     } catch (error) {
-//       console.error("Search VendorServices Error:", error);
-//       return res.status(500).json({
-//         success: false,
-//         message: "Server error",
-//         error: error.message,
-//       });
-//     }
-//   };
-
-
-
 const searchVendorServices = async (req, res) => {
   try {
-    let { query, page, limit, maxDistance } = req.query;
-    const { addressId } = req.params;
+    let { query, page, limit, maxDistance, addressId } = req.query;
+
+    const { coords } = req.body || {};
 
     // ---------- DEFAULTS ----------
     page = parseInt(page) || 1;
     limit = parseInt(limit) || 10;
-    maxDistance = parseInt(maxDistance) || 10000; // default 10 km
+    maxDistance = parseInt(maxDistance) * 1000 || 10000;
     query = query ? query.trim() : "";
 
     // ---------- VALIDATIONS ----------
@@ -232,12 +114,31 @@ const searchVendorServices = async (req, res) => {
       });
     }
 
-    // ---------- FETCH USER ADDRESS ----------
-    const userAddress = await Address.findById(addressId);
-    if (!userAddress || !userAddress.location || !userAddress.location.coordinates) {
+
+    // ---------- DETERMINE LOCATION ----------
+    let userCoordinates = null;
+
+    console.log(coords, addressId, maxDistance / 1000);
+
+    if (coords && Array.isArray(coords) && coords.length === 2) {
+      userCoordinates = coords;
+    } else if (addressId) {
+      const userAddress = await Address.findById(addressId);
+      if (
+        !userAddress ||
+        !userAddress.location ||
+        !Array.isArray(userAddress.location.coordinates)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "User address with valid coordinates not found",
+        });
+      }
+      userCoordinates = userAddress.location.coordinates;
+    } else {
       return res.status(400).json({
         success: false,
-        message: "User address with valid coordinates not found",
+        message: "Either coords or addressId must be provided",
       });
     }
 
@@ -245,8 +146,12 @@ const searchVendorServices = async (req, res) => {
     let serviceFilter = {};
 
     const matchedServices = await Service.find({
-      service_name: { $regex: query, $options: "i" },
+      $or: [
+        { service_name: { $regex: query, $options: "i" } }, // service_name includes query
+        { $expr: { $regexMatch: { input: query, regex: "$service_name", options: "i" } } } // query includes service_name
+      ]
     }).select("_id");
+
     if (matchedServices.length === 0) {
       return res.status(200).json({
         success: true,
@@ -265,7 +170,7 @@ const searchVendorServices = async (req, res) => {
         $geoNear: {
           near: {
             type: "Point",
-            coordinates: userAddress.location.coordinates
+            coordinates: userCoordinates
           },
           distanceField: "distance",
           spherical: true,
@@ -282,7 +187,10 @@ const searchVendorServices = async (req, res) => {
       },
       { $unwind: "$vendor" },
       {
-        $match: serviceFilter
+        $match: {
+          ...serviceFilter,
+          "status": "active"
+        }
       },
       {
         $lookup: {
@@ -295,7 +203,7 @@ const searchVendorServices = async (req, res) => {
       { $unwind: "$service" },
       { $sort: { distance: 1 } },
       { $skip: (page - 1) * limit },
-      { $limit: limit },
+      { $limit: limit + 1 },
       {
         $project: {
           _id: 1,
@@ -316,20 +224,26 @@ const searchVendorServices = async (req, res) => {
 
     const vendorServices = await VendorService.aggregate(pipeline);
 
-    // ---------- COUNT TOTAL ----------
-    const total = vendorServices.length;
+    const isLastPage = vendorServices.length <= limit;
+
+    // remove the extra record if we fetched one more
+    const paginatedServices = isLastPage
+      ? vendorServices
+      : vendorServices.slice(0, limit);
+
 
     return res.status(200).json({
       success: true,
       message: "Nearby vendor services fetched successfully",
-      data: vendorServices,
+      data: paginatedServices,
       pagination: {
-        total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        isLastPage,
       },
     });
+
+
   } catch (error) {
     console.error("Search VendorServices Error:", error);
     return res.status(500).json({
@@ -342,58 +256,56 @@ const searchVendorServices = async (req, res) => {
 
 
 //get vendor service by ID
-
 const getVendorServiceById = async (req, res) => {
-    try {
-      const { id } = req.params;
-  
-      // Validate ObjectId
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid vendor service ID format",
-        });
-      }
-  
-      const vendorService = await VendorService.findById(id)
-        // exclude fields directly here
-        .select("-location -createdAt -updatedAt -__v")
-        .populate({
-          path: "vendor",
-          select: "full_name email phone_number description address",
-        })
-        .populate({
-          path: "service",
-          select: "service_name description base_price pricing_type",
-        });
-  
-      if (!vendorService) {
-        return res.status(404).json({
-          success: false,
-          message: "Vendor service not found",
-        });
-      }
-  
-      res.status(200).json({
-        success: true,
-        message: "Vendor service details fetched successfully",
-        data: vendorService,
-      });
-    } catch (error) {
-      console.error("Error fetching vendor service details:", error);
-      res.status(500).json({
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
         success: false,
-        message: "Internal server error",
-        error: error.message,
+        message: "Invalid vendor service ID format",
       });
     }
-  };
+
+    const vendorService = await VendorService.findById(id)
+      // exclude fields directly here
+      .select("-location -createdAt -updatedAt -__v")
+      .populate({
+        path: "vendor",
+        select: "full_name email phone_number description address",
+      })
+      .populate({
+        path: "service",
+        select: "service_name description base_price pricing_type",
+      });
+
+    if (!vendorService) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor service not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Vendor service details fetched successfully",
+      data: vendorService,
+    });
+  } catch (error) {
+    console.error("Error fetching vendor service details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   createAddress,
   updateAddress,
   getAddresses,
-  updateProfile,
   searchVendorServices,
-  getVendorServiceById
+  getVendorServiceById,
 };

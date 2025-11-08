@@ -108,8 +108,6 @@ const registerVendor = async (req, res) => {
 
     return res.status(201).json({
       message: "Vendor registered successfully",
-      vendor: newVendor,
-      documents: uploadedFiles
     });
 
   } catch (error) {

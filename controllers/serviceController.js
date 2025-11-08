@@ -165,7 +165,7 @@ const updateVendorService = async (req, res) => {
     const vendorId = req.user.id; // From JWT middleware
     const { serviceId } = req.params;
 
-    const { price, discount, status, addons, notes } = req.body;
+    const { price, discount, status, addons, notes } = req.body || {};
 
 
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {

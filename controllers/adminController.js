@@ -137,8 +137,9 @@ const acceptVendor = async (req, res) => {
     const vendorService = new VendorService({
       vendor: newVendor._id,
       service: service._id,
-      price: service.base_price, // default or based on logic
-      final_price: service.base_price
+      price: service.base_price, 
+      final_price: service.base_price,
+      location:vendorReg.location
     });
     await vendorService.save({ session });
 
@@ -187,14 +188,14 @@ const getAllVendorRegistrations = async (req, res) => {
     const mediaList = await Media.find({
       owner_type: "VendorRegistration",
       owner_id: { $in: vendorIds }
-    }).select("_id mime_type owner_id");
+    }).select("_id mime_type owner_id file_name");
 
     // 3️ Map media to vendors
     const vendorsWithMedia = vendors.map(vendor => {
       const mediaForVendor = mediaList.filter(m => m.owner_id.toString() === vendor._id.toString());
       return {
         ...vendor,
-        media: mediaForVendor.map(m => ({ id: m._id, mime_type: m.mime_type }))
+        media: mediaForVendor.map(m => ({ id: m._id, mime_type: m.mime_type, name: m.file_name }))
       };
     });
 

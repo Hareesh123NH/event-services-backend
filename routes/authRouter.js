@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { login, signup, forgetPassword, sendOTP, setPassword } = require('../controllers/authController');
+const { login, signup, forgetPassword, sendOTP, setPassword, getProfile, updateProfile} = require('../controllers/authController');
 
 const vendor = require('../controllers/vendorController');
 const upload = require('../middlewares/multer');
+const authMiddleware = require("../middlewares/authMiddleware");
 
 
 router.post('/login', login);
@@ -20,8 +21,14 @@ router.post("/vendor-register", upload.fields([
 router.post('/send-otp', sendOTP);
 
 
+router.get("/get-profile", authMiddleware("user", "vendor"), getProfile);
+router.put("/update-profile",authMiddleware("user", "vendor"),updateProfile);
+
 router.post("/forget-password", forgetPassword);
 
 router.post("/reset-password/:token", setPassword);
+
+
+
 
 module.exports = router;

@@ -12,7 +12,8 @@ const orderSchema = new Schema({
     order_date: { type: Date, default: Date.now },
     event_date: { type: Date, required: true },
     total_amount: { type: Number, required: true },
-    status: { type: String, enum: ["pending", "confirmed","partially confirmed", "completed", "cancelled"], default: "pending" },
+    actual_amount: { type: Number, required: true, default: 0 },
+    status: { type: String, enum: ["pending", "confirmed", "partially_confirmed", "completed", "cancelled"], default: "pending" },
     payment_status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" }
 }, { timestamps: true });
 

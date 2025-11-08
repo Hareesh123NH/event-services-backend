@@ -181,6 +181,64 @@ const signup = async (req, res) => {
 };
 
 
+const getProfile = async (req, res) => {
+  try {
+    const { id, role } = req.user;
+    const Model = getModel(role);
+
+    if (!Model) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    const profile = await Model.findById(id).select("-password"); // exclude password
+
+    if (!profile) {
+      return res.status(404).json({ message: `${role} not found` });
+    }
+
+    res.json({ user: profile });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+const updateProfile = async (req, res) => {
+  try {
+    const { id, role } = req.user;
+    const Model = getModel(role);
+
+    if (!Model) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    // Exclude password if someone sends it intentionally
+    const updates = { ...req.body };
+    delete updates.password;
+    delete updates.email;
+
+    // Make sure there is at least one valid field to update
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "Please provide data to update" });
+    }
+
+    const result = await Model.findOneAndUpdate(
+      { _id: id },
+      { $set: updates },
+      { runValidators: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: `${role} not found` });
+    }
+
+    res.json({ message: `${role} profile updated successfully` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 const forgetPassword = async (req, res) => {
 
@@ -266,4 +324,4 @@ const setPassword = async (req, res) => {
   }
 }
 
-module.exports = { signup, login, forgetPassword, sendOTP, verifyOTP, setPassword };
+module.exports = { signup, login, forgetPassword, sendOTP, verifyOTP, setPassword, getProfile, updateProfile };

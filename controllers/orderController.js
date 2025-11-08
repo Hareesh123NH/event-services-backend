@@ -107,7 +107,7 @@ const createOrder = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: "Order created successfully",
-            data: { order: savedOrder, orderDetails: orderDetailsData }
+            // data: { order: savedOrder, orderDetails: orderDetailsData }
         });
 
     } catch (error) {
@@ -166,10 +166,9 @@ const updateProviderStatus = async (req, res) => {
         else if (allDeclined) newOrderStatus = "cancelled";
         else if (someAccepted) newOrderStatus = "partially_confirmed";
 
-        if (newOrderStatus) {
-            await Order.findByIdAndUpdate(orderDetail.order, { status: newOrderStatus });
-        }
-
+        // if (newOrderStatus) {
+        //     await Order.findByIdAndUpdate(orderDetail.order, { status: newOrderStatus });
+        // }
 
         // ✅ Update actual_amount incrementally if accepted
         const order = await Order.findById(orderDetail.order);
@@ -178,6 +177,8 @@ const updateProviderStatus = async (req, res) => {
         if (status === "accepted") {
             const addedAmount = orderDetail.price * (orderDetail.quantity || 1);
             updatedAmount += addedAmount;
+            vendorService.total_bookings+=1;
+            await vendorService.save();
         }
 
         // ✅ If all declined → reset to 0
@@ -250,6 +251,7 @@ const getOrderHistory = async (req, res) => {
         const simplifiedOrders = ordersWithDetails.map(order => ({
             _id: order._id,
             event_date: order.event_date,
+            actual_amount:order.actual_amount,
             total_amount: order.total_amount,
             status: order.status,
             payment_status: order.payment_status,
@@ -453,76 +455,78 @@ const getVendorOrderHistory = async (req, res) => {
 
 const getVendorPendingOrders = async (req, res) => {
     try {
-      const vendorId = req.user.id; // vendor's id from auth middleware
-  
-      // Fetch orderDetails with populated vendor_service, service, and order.user
-      const orderDetails = await OrderDetail.find({ provider_status: "pending" })
-        .populate({
-          path: "vendor_service",
-          match: { vendor: vendorId },
-          select: "price service", // fields from VendorService
-          populate: {
-            path: "service",
-            select: "service_name" // get service_name from Service schema
-          }
-        })
-        .populate({
-          path: "order",
-          select: "user event_address event_date status",
-          populate: [
-            {
-              path: "user",
-              model: "User",
-              select: "full_name email phone_number"
-            },
-            {
-              path: "event_address",
-              model: "Address",
-              select: "line1 line2 city state pincode" // adjust based on your schema
+        const vendorId = req.user.id; // vendor's id from auth middleware
+
+        // Fetch orderDetails with populated vendor_service, service, and order.user
+        const orderDetails = await OrderDetail.find({ provider_status: "pending" })
+            .populate({
+                path: "vendor_service",
+                match: { vendor: vendorId },
+                select: "price service", // fields from VendorService
+                populate: {
+                    path: "service",
+                    select: "service_name" // get service_name from Service schema
+                }
+            })
+            .populate({
+                path: "order",
+                select: "user event_address event_date status",
+                populate: [
+                    {
+                        path: "user",
+                        model: "User",
+                        select: "full_name email phone_number"
+                    },
+                    {
+                        path: "event_address",
+                        model: "Address",
+                        select: "line1 line2 city state pincode" // adjust based on your schema
+                    }
+                ]
+            });
+
+
+        // Filter out orderDetails where vendor_service didn't match
+        const filteredDetails = orderDetails.filter(od => od.vendor_service);
+
+        // Group services by order
+        const grouped = {};
+        filteredDetails.forEach(od => {
+            const orderId = od.order._id.toString();
+
+            if (!grouped[orderId]) {
+                grouped[orderId] = {
+                    order_id: od.order._id,
+                    user: od.order.user,
+                    event_address: od.order.event_address,
+                    event_date: od.order.event_date,
+                    status: od.order.status,
+                    services: []
+                };
             }
-          ]
+
+            grouped[orderId].services.push({
+                orderDetailId:od._id,
+                service_id: od.vendor_service._id,
+                service_name: od.vendor_service.service.service_name, // populated Service
+                quantity: od.quantity,
+                price: od.price,
+                provider_status: od.provider_status,
+                scheduled_from: od.scheduled_from,
+                scheduled_to: od.scheduled_to
+            });
         });
-  
-      // Filter out orderDetails where vendor_service didn't match
-      const filteredDetails = orderDetails.filter(od => od.vendor_service);
-  
-      // Group services by order
-      const grouped = {};
-      filteredDetails.forEach(od => {
-        const orderId = od.order._id.toString();
-  
-        if (!grouped[orderId]) {
-          grouped[orderId] = {
-            order_id: od.order._id,
-            user: od.order.user,
-            event_address: od.order.event_address,
-            event_date: od.order.event_date,
-            status: od.order.status,
-            services: []
-          };
-        }
-  
-        grouped[orderId].services.push({
-          service_id: od.vendor_service._id,
-          service_name: od.vendor_service.service.service_name, // populated Service
-          quantity: od.quantity,
-          price: od.price,
-          provider_status: od.provider_status,
-          scheduled_from: od.scheduled_from,
-          scheduled_to: od.scheduled_to
+
+        res.status(200).json({
+            success: true,
+            count: Object.keys(grouped).length,
+            orders: Object.values(grouped)
         });
-      });
-  
-      res.status(200).json({
-        success: true,
-        count: Object.keys(grouped).length,
-        orders: Object.values(grouped)
-      });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ success: false, message: "Server Error" });
+        console.error(err);
+        res.status(500).json({ success: false, message: "Server Error" });
     }
-  };
+};
 module.exports = {
     getOrderHistory,
     getVendorOrderHistory,
