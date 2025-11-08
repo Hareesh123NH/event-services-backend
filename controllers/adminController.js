@@ -138,7 +138,8 @@ const acceptVendor = async (req, res) => {
       vendor: newVendor._id,
       service: service._id,
       price: service.base_price, // default or based on logic
-      final_price: service.base_price
+      final_price: service.base_price,
+      location:vendorReg.location
     });
     await vendorService.save({ session });
 
