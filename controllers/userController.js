@@ -96,14 +96,14 @@ const getAddresses = async (req, res) => {
 
 const searchVendorServices = async (req, res) => {
   try {
-    let { query, page, limit, maxDistance, addressId } = req.query;
+    let { query, page, limit, maxDistance, addressId, search } = req.query;
 
     const { coords } = req.body || {};
 
     // ---------- DEFAULTS ----------
     page = parseInt(page) || 1;
     limit = parseInt(limit) || 10;
-    maxDistance = parseInt(maxDistance) * 1000 || 10000;
+    maxDistance = (parseInt(maxDistance) || 10) * 1000;
     query = query ? query.trim() : "";
 
     // ---------- VALIDATIONS ----------
@@ -145,23 +145,21 @@ const searchVendorServices = async (req, res) => {
     // ---------- FIND MATCHING SERVICES ----------
     let serviceFilter = {};
 
-    const matchedServices = await Service.find({
-      $or: [
-        { service_name: { $regex: query, $options: "i" } }, // service_name includes query
-        { $expr: { $regexMatch: { input: query, regex: "$service_name", options: "i" } } } // query includes service_name
-      ]
-    }).select("_id");
+    if (query) {
+      const matchedServices = await Service.find({
+        service_name: { $regex: query, $options: "i" }
+      }).select("_id");
 
-    if (matchedServices.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "No vendor services found for the given query",
-        data: [],
-        pagination: { total: 0, page, limit },
-      });
+      if (matchedServices.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "No vendor services found for the given query",
+          data: [],
+          pagination: { total: 0, page, limit },
+        });
+      }
+      serviceFilter = { service: { $in: matchedServices.map(s => s._id) } };
     }
-    serviceFilter = { service: { $in: matchedServices.map(s => s._id) } };
-
 
 
     // ---------- AGGREGATION PIPELINE ----------
@@ -186,6 +184,7 @@ const searchVendorServices = async (req, res) => {
         }
       },
       { $unwind: "$vendor" },
+      
       {
         $match: {
           ...serviceFilter,
@@ -201,6 +200,72 @@ const searchVendorServices = async (req, res) => {
         }
       },
       { $unwind: "$service" },
+      
+      ...(search
+        ? [
+          {
+            $match: {
+              $or: [
+                // Vendor fields
+                { "vendor.full_name": { $regex: search, $options: "i" } },
+                { "vendor.description": { $regex: search, $options: "i" } },
+                { "vendor.address": { $regex: search, $options: "i" } },
+
+                // Service fields
+                { "service.service_name": { $regex: search, $options: "i" } },
+                { "service.description": { $regex: search, $options: "i" } },
+                {
+                  "service.pricing_type": { $regex: search, $options: "i" },
+                },
+
+                // VendorService fields
+                { notes: { $regex: search, $options: "i" } },
+                { "addons.title": { $regex: search, $options: "i" } },
+                { "addons.description": { $regex: search, $options: "i" } },
+
+                // Numeric fields converted to string
+                {
+                  $expr: {
+                    $regexMatch: {
+                      input: { $toString: "$service.base_price" },
+                      regex: search,
+                      options: "i",
+                    },
+                  },
+                },
+                {
+                  $expr: {
+                    $regexMatch: {
+                      input: { $toString: "$price" },
+                      regex: search,
+                      options: "i",
+                    },
+                  },
+                },
+                {
+                  $expr: {
+                    $regexMatch: {
+                      input: { $toString: "$final_price" },
+                      regex: search,
+                      options: "i",
+                    },
+                  },
+                },
+                {
+                  $expr: {
+                    $regexMatch: {
+                      input: { $toString: "$discount" },
+                      regex: search,
+                      options: "i",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ]
+        : []),
+
       { $sort: { distance: 1 } },
       { $skip: (page - 1) * limit },
       { $limit: limit + 1 },

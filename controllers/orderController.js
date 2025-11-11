@@ -177,7 +177,7 @@ const updateProviderStatus = async (req, res) => {
         if (status === "accepted") {
             const addedAmount = orderDetail.price * (orderDetail.quantity || 1);
             updatedAmount += addedAmount;
-            vendorService.total_bookings+=1;
+            vendorService.total_bookings += 1;
             await vendorService.save();
         }
 
@@ -230,6 +230,10 @@ const getOrderHistory = async (req, res) => {
                 populate: {
                     path: "vendor",
                     select: "full_name phone_number email"
+                },
+                populate:{
+                    path:"service",
+                    select:"service_name base_price"
                 }
             })
             .lean();
@@ -251,7 +255,7 @@ const getOrderHistory = async (req, res) => {
         const simplifiedOrders = ordersWithDetails.map(order => ({
             _id: order._id,
             event_date: order.event_date,
-            actual_amount:order.actual_amount,
+            actual_amount: order.actual_amount,
             total_amount: order.total_amount,
             status: order.status,
             payment_status: order.payment_status,
@@ -284,7 +288,10 @@ const getOrderHistory = async (req, res) => {
                             name: service.vendor_service.vendor?.full_name,
                             phone_number: service.vendor_service.vendor?.phone_number
                         },
-                        service: service.vendor_service.service
+                        service: {
+                            service_name: service.vendor_service.service?.service_name,
+                            base_price: service.vendor_service.service?.base_price
+                        }
                     }
                     : null
             }))
@@ -506,7 +513,7 @@ const getVendorPendingOrders = async (req, res) => {
             }
 
             grouped[orderId].services.push({
-                orderDetailId:od._id,
+                orderDetailId: od._id,
                 service_id: od.vendor_service._id,
                 service_name: od.vendor_service.service.service_name, // populated Service
                 quantity: od.quantity,
