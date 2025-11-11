@@ -227,14 +227,16 @@ const getOrderHistory = async (req, res) => {
         const orderDetails = await OrderDetail.find({ order: { $in: orderIds } })
             .populate({
                 path: "vendor_service",
-                populate: {
-                    path: "vendor",
-                    select: "full_name phone_number email"
-                },
-                populate:{
-                    path:"service",
-                    select:"service_name base_price"
-                }
+                populate: [
+                    {
+                        path: "vendor",
+                        select: "full_name phone_number email"
+                    },
+                    {
+                        path: "service",
+                        select: "service_name base_price"
+                    }
+                ]
             })
             .lean();
 
