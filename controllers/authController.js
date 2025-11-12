@@ -238,44 +238,38 @@ const updateProfile = async (req, res) => {
 };
 
 const forgetPassword = async (req, res) => {
-
   try {
     const { email, role } = req.body || {};
 
     if (!email) {
-      return res.status(400).json({ message: "please provid the mail" });
+      return res.status(400).json({ message: "Please provide the email" });
     }
 
-    let Model = getModel(role);
-
+    const Model = getModel(role);
     if (!Model) {
       return res.status(400).json({ message: "Invalid role" });
     }
 
     const user = await Model.findOne({ email });
-
-    if (!user) return res.status(401).json({ message: "Email not exist!" });
+    if (!user) return res.status(401).json({ message: "Email does not exist!" });
 
     // Create token valid for 15 minutes
-    const token = jwt.sign({ id: user._id, role: role }, JWT_SECRET, { expiresIn: "15m" });
+    const token = jwt.sign({ id: user._id, role }, JWT_SECRET, { expiresIn: "15m" });
 
-    const link = `${process.env.CLIENT_BASE_URL}/forgot_password.html?token=${token}`;
+    // Dynamically determine client URL
+    const origin = req.headers.origin || `${req.protocol}://${req.get("host")}`;
+    const link = `${origin}/reset-password?token=${token}`;
 
     // Send email
     await transporter.sendMail({
       from: process.env.MAIL_ID,
       to: user.email,
       subject: "Password Reset",
-      // text: `Click here to reset your password: ${link}`,
-      // html: `<p>Click <a href="${link}">here</a> to reset your password.</p>
-      //       <p>Copy<a href="${token}">Token</a></p>  `
-
       html: `
-            <p>Click <a href="${link}">here</a> to reset your password.</p>
-            <p>If you prefer, you can copy and paste this token:</p>
-            <pre style="background:#f4f4f4;padding:10px;border-radius:5px;">${token}</pre>
-          `
-
+        <p>Click <a href="${link}">here</a> to reset your password.</p>
+        <p>If you prefer, you can copy and paste this token:</p>
+        <pre style="background:#f4f4f4;padding:10px;border-radius:5px;">${token}</pre>
+      `
     });
 
     res.status(200).json({
@@ -286,6 +280,7 @@ const forgetPassword = async (req, res) => {
     console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
+
 }
 
 
